@@ -4,18 +4,17 @@ import { useEffect } from "react";
 const DESKTOP_WIDTH = 320;
 const DESKTOP_HEIGHT = 180;
 
-// Mobile Portrait Dimensions (9:16ish)
-const MOBILE_WIDTH = 180;
-const MOBILE_HEIGHT = 320;
+// Mobile Portrait Dimensions (Half of previous 180x320) -> 90x160
+// Or maybe slightly larger than half to be usable, let's try 120x213 (approx 9:16)
+// User asked for "half of that" (180x320) -> 90x160 seems very small but let's try ~110x195 for usability
+// Let's go with roughly half surface area or half dimensions? "Way smaller" usually implies dimensions.
+const MOBILE_WIDTH = 100;
+const MOBILE_HEIGHT = 180;
 
 const PADDING = 24;
 
 export const useMiniPlayerLogic = (isMinimized: boolean, isActive: boolean) => {
   const controls = useAnimation();
-
-  // Track dimensions to use in render/logic
-  // We can't use simple constants if we want it responsive
-  // but for the sake of the hook, we can calculate inside the effect/handler.
 
   useEffect(() => {
     if (!isActive) return;
@@ -30,8 +29,8 @@ export const useMiniPlayerLogic = (isMinimized: boolean, isActive: boolean) => {
         let targetX;
 
         if (isMobile) {
-          // Center horizontally on mobile
-          targetX = window.innerWidth / 2 - currentWidth / 2;
+          // Default mobile position: Bottom Right
+          targetX = window.innerWidth - currentWidth - PADDING;
         } else {
           targetX = window.innerWidth - currentWidth - PADDING;
         }
@@ -89,11 +88,16 @@ export const useMiniPlayerLogic = (isMinimized: boolean, isActive: boolean) => {
     let snapPoints = [];
 
     if (isMobile) {
-      // Mobile: Vertical Column
+      // Mobile: Add center points back for top and bottom sides
       snapPoints = [
-        { x: centerX, y: topY },
-        { x: centerX, y: middleY },
-        { x: centerX, y: bottomY },
+        { x: leftX, y: topY }, // Top Left
+        { x: centerX, y: topY }, // Top Center (Restored)
+        { x: rightX, y: topY }, // Top Right
+        { x: leftX, y: middleY }, // Middle Left
+        { x: rightX, y: middleY }, // Middle Right
+        { x: leftX, y: bottomY }, // Bottom Left
+        { x: centerX, y: bottomY }, // Bottom Center (Restored)
+        { x: rightX, y: bottomY }, // Bottom Right
       ];
     } else {
       // Desktop: 8pt Grid

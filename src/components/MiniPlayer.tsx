@@ -24,6 +24,9 @@ export const MiniPlayer = () => {
         drag={isMinimized}
         dragMomentum={false}
         onDragEnd={handleDragEnd}
+        onTap={() => {
+          if (isMinimized) maximize();
+        }}
         className="absolute bg-black shadow-2xl overflow-hidden pointer-events-auto"
         style={{
           top: 0,
@@ -43,9 +46,10 @@ export const MiniPlayer = () => {
         />
 
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start bg-gradient-to-b from-black/60 to-transparent pointer-events-auto">
+          {/* Reduced padding on mobile via sm:p-4 p-2 */}
+          <div className="absolute top-0 left-0 right-0 p-2 sm:p-4 flex justify-between items-start bg-gradient-to-b from-black/60 to-transparent pointer-events-auto">
             {isMinimized && (
-              <div className="cursor-move text-white/80 hover:text-white mr-auto active:cursor-grabbing">
+              <div className="cursor-move text-white/80 hover:text-white mr-auto active:cursor-grabbing hidden sm:block">
                 <GripHorizontal />
               </div>
             )}
@@ -60,12 +64,14 @@ export const MiniPlayer = () => {
                     minimize();
                   }
                 }}
-                className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md transition-colors"
+                className={`p-1.5 sm:p-2 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md transition-colors ${
+                  isMinimized ? "hidden sm:block" : ""
+                }`}
               >
                 {isMinimized ? (
-                  <Maximize2 size={20} />
+                  <Maximize2 size={20} className="w-4 h-4 sm:w-5 sm:h-5" />
                 ) : (
-                  <Minimize2 size={20} />
+                  <Minimize2 size={20} className="w-4 h-4 sm:w-5 sm:h-5" />
                 )}
               </button>
 
@@ -74,20 +80,13 @@ export const MiniPlayer = () => {
                   e.stopPropagation();
                   close();
                 }}
-                className="p-2 bg-red-500/80 hover:bg-red-600 rounded-full text-white backdrop-blur-md transition-colors"
+                className="p-1.5 sm:p-2 bg-red-500/80 hover:bg-red-600 rounded-full text-white backdrop-blur-md transition-colors"
               >
-                <X size={20} />
+                <X size={20} className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
           </div>
         </div>
-
-        {isMinimized && (
-          <div
-            className="absolute inset-0 z-[-1] cursor-pointer"
-            onDoubleClick={maximize}
-          />
-        )}
       </motion.div>
     </div>
   );
