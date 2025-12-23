@@ -60,6 +60,7 @@ export const useMiniPlayerLogic = (isMinimized: boolean, isActive: boolean) => {
     if (!isActive) return;
 
     if (isMinimized) {
+      document.body.style.overflow = "";
       const handleResize = () => {
         const isMobile = window.innerWidth < 600;
         const currentWidth = isMobile ? MOBILE_WIDTH : DESKTOP_WIDTH;
@@ -88,8 +89,12 @@ export const useMiniPlayerLogic = (isMinimized: boolean, isActive: boolean) => {
       handleResize();
 
       window.addEventListener("resize", handleResize);
-      return () => window.removeEventListener("resize", handleResize);
+      return () => {
+        window.removeEventListener("resize", handleResize);
+        document.body.style.overflow = "";
+      };
     } else {
+      document.body.style.overflow = "hidden";
       controls.start({
         x: 0,
         y: 0,
@@ -100,6 +105,9 @@ export const useMiniPlayerLogic = (isMinimized: boolean, isActive: boolean) => {
         borderRadius: 0,
         transition: { type: "spring", stiffness: 300, damping: 30 },
       });
+      return () => {
+        document.body.style.overflow = "";
+      };
     }
   }, [isMinimized, isActive, controls]);
 
