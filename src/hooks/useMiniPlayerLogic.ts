@@ -1,27 +1,48 @@
 import { PanInfo, useAnimation } from "framer-motion";
 import { useEffect } from "react";
 
-const MINI_WIDTH = 320;
-const MINI_HEIGHT = 180;
+const DESKTOP_WIDTH = 320;
+const DESKTOP_HEIGHT = 180;
+
+// Mobile Portrait Dimensions (9:16ish)
+const MOBILE_WIDTH = 180;
+const MOBILE_HEIGHT = 320;
+
 const PADDING = 24;
 
 export const useMiniPlayerLogic = (isMinimized: boolean, isActive: boolean) => {
   const controls = useAnimation();
+
+  // Track dimensions to use in render/logic
+  // We can't use simple constants if we want it responsive
+  // but for the sake of the hook, we can calculate inside the effect/handler.
 
   useEffect(() => {
     if (!isActive) return;
 
     if (isMinimized) {
       const handleResize = () => {
-        // Default to bottom right on initial minimize
-        const targetX = window.innerWidth - MINI_WIDTH - PADDING;
-        const targetY = window.innerHeight - MINI_HEIGHT - PADDING;
+        const isMobile = window.innerWidth < 600;
+
+        const currentWidth = isMobile ? MOBILE_WIDTH : DESKTOP_WIDTH;
+        const currentHeight = isMobile ? MOBILE_HEIGHT : DESKTOP_HEIGHT;
+
+        let targetX;
+
+        if (isMobile) {
+          // Center horizontally on mobile
+          targetX = window.innerWidth / 2 - currentWidth / 2;
+        } else {
+          targetX = window.innerWidth - currentWidth - PADDING;
+        }
+
+        const targetY = window.innerHeight - currentHeight - PADDING;
 
         controls.start({
           x: targetX,
           y: targetY,
-          width: MINI_WIDTH,
-          height: MINI_HEIGHT,
+          width: currentWidth,
+          height: currentHeight,
           opacity: 1,
           scale: 1,
           borderRadius: 12,
@@ -29,9 +50,6 @@ export const useMiniPlayerLogic = (isMinimized: boolean, isActive: boolean) => {
         });
       };
 
-      // Only run initial placement if we aren't already minimized (to avoid resetting position on re-renders)
-      // But simpler for this demo: always snap to bottom right on mount/resize if minimized.
-      // A more complex app would store the last position.
       handleResize();
 
       window.addEventListener("resize", handleResize);
@@ -53,56 +71,52 @@ export const useMiniPlayerLogic = (isMinimized: boolean, isActive: boolean) => {
   const handleDragEnd = (_: unknown, info: PanInfo) => {
     if (!isMinimized) return;
 
-    const { x, y } = info.point; // pointer position
+    const { x, y } = info.point;
     const { innerWidth, innerHeight } = window;
+    const isMobile = innerWidth < 600;
 
-    // Define snap points
-    // x: PADDING (Left), innerWidth/2 - MINI_WIDTH/2 (Center), innerWidth - MINI_WIDTH - PADDING (Right)
-    // y: PADDING (Top), innerHeight/2 - MINI_HEIGHT/2 (Middle), innerHeight - MINI_HEIGHT - PADDING (Bottom)
+    const currentWidth = isMobile ? MOBILE_WIDTH : DESKTOP_WIDTH;
+    const currentHeight = isMobile ? MOBILE_HEIGHT : DESKTOP_HEIGHT;
 
     const leftX = PADDING;
-    const centerX = innerWidth / 2 - MINI_WIDTH / 2;
-    const rightX = innerWidth - MINI_WIDTH - PADDING;
+    const centerX = innerWidth / 2 - currentWidth / 2;
+    const rightX = innerWidth - currentWidth - PADDING;
 
     const topY = PADDING;
-    const middleY = innerHeight / 2 - MINI_HEIGHT / 2;
-    const bottomY = innerHeight - MINI_HEIGHT - PADDING;
+    const middleY = innerHeight / 2 - currentHeight / 2;
+    const bottomY = innerHeight - currentHeight - PADDING;
 
-    // Possible snap coordinates
-    const snapPoints = [
-      { x: leftX, y: topY }, // Top-Left
-      { x: centerX, y: topY }, // Top-Center
-      { x: rightX, y: topY }, // Top-Right
-      { x: rightX, y: middleY }, // Middle-Right
-      { x: rightX, y: bottomY }, // Bottom-Right
-      { x: centerX, y: bottomY }, // Bottom-Center
-      { x: leftX, y: bottomY }, // Bottom-Left
-      { x: leftX, y: middleY }, // Middle-Left
-    ];
+    let snapPoints = [];
 
-    // Find closest snap point
-    // We calculate distance from the *pointer* to the center of each potential snap slot?
-    // Or closer: distance from current element center to snap slot center?
-    // Framer gives us 'point' which is mouse position.
-    // Let's approximate by finding which snap point is closest to the mouse relative to the box size.
-    // Actually, closest distance to the top-left coordinate of the snap point works if we adjust mouse pos by half width/height.
-
-    // Let's assume the user is dragging from the center of the player roughly.
-    const projectedCenterX = x; // simplistic assumption
-    const projectedCenterY = y;
+    if (isMobile) {
+      // Mobile: Vertical Column
+      snapPoints = [
+        { x: centerX, y: topY },
+        { x: centerX, y: middleY },
+        { x: centerX, y: bottomY },
+      ];
+    } else {
+      // Desktop: 8pt Grid
+      snapPoints = [
+        { x: leftX, y: topY },
+        { x: centerX, y: topY },
+        { x: rightX, y: topY },
+        { x: rightX, y: middleY },
+        { x: rightX, y: bottomY },
+        { x: centerX, y: bottomY },
+        { x: leftX, y: bottomY },
+        { x: leftX, y: middleY },
+      ];
+    }
 
     let closestPoint = snapPoints[0];
     let minDistance = Infinity;
 
     snapPoints.forEach((point) => {
-      // Calculate center of this snap point
-      const snapCenterX = point.x + MINI_WIDTH / 2;
-      const snapCenterY = point.y + MINI_HEIGHT / 2;
+      const snapCenterX = point.x + currentWidth / 2;
+      const snapCenterY = point.y + currentHeight / 2;
 
-      const dist = Math.hypot(
-        projectedCenterX - snapCenterX,
-        projectedCenterY - snapCenterY
-      );
+      const dist = Math.hypot(x - snapCenterX, y - snapCenterY);
 
       if (dist < minDistance) {
         minDistance = dist;
