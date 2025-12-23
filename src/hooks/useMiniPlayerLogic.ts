@@ -1,20 +1,60 @@
-import { PanInfo, useAnimation } from "framer-motion";
-import { useEffect } from "react";
+import { useAnimation } from "framer-motion";
+import { useEffect, useRef } from "react";
 
 const DESKTOP_WIDTH = 320;
 const DESKTOP_HEIGHT = 180;
 
-// Mobile Portrait Dimensions (Half of previous 180x320) -> 90x160
-// Or maybe slightly larger than half to be usable, let's try 120x213 (approx 9:16)
-// User asked for "half of that" (180x320) -> 90x160 seems very small but let's try ~110x195 for usability
-// Let's go with roughly half surface area or half dimensions? "Way smaller" usually implies dimensions.
 const MOBILE_WIDTH = 100;
 const MOBILE_HEIGHT = 180;
 
-const PADDING = 24;
+const PADDING = 16;
+const TOP_PADDING = 20;
+const BOTTOM_PADDING = 20;
 
 export const useMiniPlayerLogic = (isMinimized: boolean, isActive: boolean) => {
   const controls = useAnimation();
+  const lastSnapIndex = useRef<number>(7);
+
+  const getSnapPoints = (width: number, height: number, isMobile: boolean) => {
+    const currentWidth = isMobile ? MOBILE_WIDTH : DESKTOP_WIDTH;
+    const currentHeight = isMobile ? MOBILE_HEIGHT : DESKTOP_HEIGHT;
+
+    const leftX = PADDING;
+    const centerX = width / 2 - currentWidth / 2;
+    const rightX = width - currentWidth - PADDING;
+
+    const topY = TOP_PADDING;
+    const middleY = height / 2 - currentHeight / 2;
+    const bottomY = height - currentHeight - BOTTOM_PADDING;
+
+    if (isMobile) {
+      return [
+        { x: leftX, y: topY }, // 0
+        { x: centerX, y: topY }, // 1
+        { x: rightX, y: topY }, // 2
+        { x: leftX, y: middleY }, // 3
+        { x: rightX, y: middleY }, // 4
+        { x: leftX, y: bottomY }, // 5
+        { x: centerX, y: bottomY }, // 6
+        { x: rightX, y: bottomY }, // 7
+      ];
+    } else {
+      const dTopY = PADDING;
+      const dBottomY = height - currentHeight - PADDING;
+      const dMiddleY = height / 2 - currentHeight / 2;
+
+      return [
+        { x: leftX, y: dTopY },
+        { x: centerX, y: dTopY },
+        { x: rightX, y: dTopY },
+        { x: rightX, y: dMiddleY },
+        { x: rightX, y: dBottomY },
+        { x: centerX, y: dBottomY },
+        { x: leftX, y: dBottomY },
+        { x: leftX, y: dMiddleY },
+      ];
+    }
+  };
 
   useEffect(() => {
     if (!isActive) return;
@@ -22,24 +62,20 @@ export const useMiniPlayerLogic = (isMinimized: boolean, isActive: boolean) => {
     if (isMinimized) {
       const handleResize = () => {
         const isMobile = window.innerWidth < 600;
-
         const currentWidth = isMobile ? MOBILE_WIDTH : DESKTOP_WIDTH;
         const currentHeight = isMobile ? MOBILE_HEIGHT : DESKTOP_HEIGHT;
 
-        let targetX;
+        const snapPoints = getSnapPoints(
+          window.innerWidth,
+          window.innerHeight,
+          isMobile
+        );
 
-        if (isMobile) {
-          // Default mobile position: Bottom Right
-          targetX = window.innerWidth - currentWidth - PADDING;
-        } else {
-          targetX = window.innerWidth - currentWidth - PADDING;
-        }
-
-        const targetY = window.innerHeight - currentHeight - PADDING;
+        const targetSnap = snapPoints[lastSnapIndex.current] || snapPoints[7];
 
         controls.start({
-          x: targetX,
-          y: targetY,
+          x: targetSnap.x,
+          y: targetSnap.y,
           width: currentWidth,
           height: currentHeight,
           opacity: 1,
@@ -67,66 +103,51 @@ export const useMiniPlayerLogic = (isMinimized: boolean, isActive: boolean) => {
     }
   }, [isMinimized, isActive, controls]);
 
-  const handleDragEnd = (_: unknown, info: PanInfo) => {
+  const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent) => {
     if (!isMinimized) return;
 
-    const { x, y } = info.point;
+    // Use native event coordinates to ensure we get Viewport (clientX/Y) relative values
+    // ignoring scroll position which info.point sometimes includes or misinterprets in complex fixed contexts.
+    let clientX, clientY;
+
+    if ("changedTouches" in event && event.changedTouches.length > 0) {
+      // Touch event
+      clientX = event.changedTouches[0].clientX;
+      clientY = event.changedTouches[0].clientY;
+    } else {
+      // Mouse event
+      const mouseEvent = event as MouseEvent;
+      clientX = mouseEvent.clientX;
+      clientY = mouseEvent.clientY;
+    }
+
     const { innerWidth, innerHeight } = window;
     const isMobile = innerWidth < 600;
 
     const currentWidth = isMobile ? MOBILE_WIDTH : DESKTOP_WIDTH;
     const currentHeight = isMobile ? MOBILE_HEIGHT : DESKTOP_HEIGHT;
 
-    const leftX = PADDING;
-    const centerX = innerWidth / 2 - currentWidth / 2;
-    const rightX = innerWidth - currentWidth - PADDING;
-
-    const topY = PADDING;
-    const middleY = innerHeight / 2 - currentHeight / 2;
-    const bottomY = innerHeight - currentHeight - PADDING;
-
-    let snapPoints = [];
-
-    if (isMobile) {
-      // Mobile: Add center points back for top and bottom sides
-      snapPoints = [
-        { x: leftX, y: topY }, // Top Left
-        { x: centerX, y: topY }, // Top Center (Restored)
-        { x: rightX, y: topY }, // Top Right
-        { x: leftX, y: middleY }, // Middle Left
-        { x: rightX, y: middleY }, // Middle Right
-        { x: leftX, y: bottomY }, // Bottom Left
-        { x: centerX, y: bottomY }, // Bottom Center (Restored)
-        { x: rightX, y: bottomY }, // Bottom Right
-      ];
-    } else {
-      // Desktop: 8pt Grid
-      snapPoints = [
-        { x: leftX, y: topY },
-        { x: centerX, y: topY },
-        { x: rightX, y: topY },
-        { x: rightX, y: middleY },
-        { x: rightX, y: bottomY },
-        { x: centerX, y: bottomY },
-        { x: leftX, y: bottomY },
-        { x: leftX, y: middleY },
-      ];
-    }
+    const snapPoints = getSnapPoints(innerWidth, innerHeight, isMobile);
 
     let closestPoint = snapPoints[0];
     let minDistance = Infinity;
+    let closestIndex = 0;
 
-    snapPoints.forEach((point) => {
+    snapPoints.forEach((point, index) => {
       const snapCenterX = point.x + currentWidth / 2;
       const snapCenterY = point.y + currentHeight / 2;
 
-      const dist = Math.hypot(x - snapCenterX, y - snapCenterY);
+      // Distance from Pointer (Viewport) to Snap Center (Viewport)
+      const dist = Math.hypot(clientX - snapCenterX, clientY - snapCenterY);
 
       if (dist < minDistance) {
         minDistance = dist;
         closestPoint = point;
+        closestIndex = index;
       }
     });
+
+    lastSnapIndex.current = closestIndex;
 
     controls.start({
       x: closestPoint.x,
